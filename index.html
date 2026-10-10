@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur de devis d'entretien</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+fieldset { margin: 1rem 0; padding: 1rem; }
+label { display: block; margin: 0.5rem 0; }
+input, select { padding: 0.4rem; width: 100%; max-width: 300px; }
+button { padding: 0.6rem 1.2rem; margin: 0.5rem 0.5rem 0.5rem 0; }
+.ligne { border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; }
+.total { font-weight: bold; font-size: 1.2rem; }
+.mode-badge { background: #e0e0e0; padding: 0.3rem 0.6rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Simulateur de devis d'entretien</h1>
+<p id="mode-badge" class="mode-badge">Mode : non choisi</p>
+
+<fieldset>
+<legend>Mode de devis</legend>
+<label><input type="radio" name="mode" value="invite" checked> Mode invité (sans données client)</label>
+<label><input type="radio" name="mode" value="client"> Avec nom du client</label>
+<label><input type="radio" name="mode" value="visiteur"> Mode visiteur (formulaire client sur site)</label>
+</fieldset>
+
+<fieldset id="bloc-client" style="display:none">
+<legend>Client</legend>
+<label>Nom <input id="client-nom" type="text"></label>
+<label>Téléphone <input id="client-tel" type="tel"></label>
+<label>Email <input id="client-email" type="email"></label>
+<label>Adresse <input id="client-adresse" type="text"></label>
+</fieldset>
+
+<h2>Appareils</h2>
+<div id="lignes"></div>
+<button onclick="ajouterLigne()">+ Ajouter un appareil</button>
+
+<h2>Devis</h2>
+<div id="resultat"></div>
+<button onclick="calculer()">Calculer le devis</button>
+<button onclick="envoyer()">Envoyer le devis</button>
+
+<script>
+const TARIFS = {
+  "clim-mono": { lib: "Clim monosplit", prix: 130, tva: 0.20 },
+  "clim-multi": { lib: "Clim multisplit", prix: 180, tva: 0.20 },
+  "pac-air-air": { lib: "PAC air-air", prix: 175, tva: 0.20 },
+  "pac-air-eau": { lib: "PAC air-eau", prix: 225, tva: 0.20 },
+  "solaire": { lib: "Panneaux solaires", prix: 15, tva: 0.055, unitaire: true },
+  "ballon": { lib: "Ballon thermodynamique", prix: 175, tva: 0.20 }
+};
+
+let ligneId = 0;
+
+document.querySelectorAll('input[name="mode"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    document.getElementById('bloc-client').style.display = mode === 'invite' ? 'none' : 'block';
+    document.getElementById('mode-badge').textContent = 'Mode : ' + mode;
+  });
+});
+
+function ajouterLigne() {
+  const id = ++ligneId;
+  const div = document.createElement('div');
+  div.className = 'ligne';
+  div.id = 'ligne-' + id;
+  div.innerHTML = `
+    <label>Type <select id="type-${id}">
+      <option value="clim-mono">Clim monosplit</option>
+      <option value="clim-multi">Clim multisplit</option>
+      <option value="pac-air-air">PAC air-air</option>
+      <option value="pac-air-eau">PAC air-eau</option>
+      <option value="solaire">Panneaux solaires</option>
+      <option value="ballon">Ballon thermodynamique</option>
+    </select></label>
+    <label>Année d'installation <input id="annee-${id}" type="number" min="2000" max="2030" value="2020"></label>
+    <label>Installé par moi <input id="parmoi-${id}" type="checkbox"></label>
+    <label>Puissance (kW) <input id="puissance-${id}" type="number" step="0.1" min="0"></label>
+    <label>Nombre de panneaux <input id="panneaux-${id}" type="number" min="0"></label>
+    <label>Autoconsommation / Revente <select id="mode-solaire-${id}">
+      <option value="">—</option>
+      <option value="auto">Autoconsommation</option>
+      <option value="revente">Revente</option>
+    </select></label>
+    <button onclick="document.getElementById('ligne-${id}').remove()">Supprimer</button>
+  `;
+  document.getElementById('lignes').appendChild(div);
+}
+
+function calculer() {
+  const lignes = document.querySelectorAll('.ligne');
+  let html = '<table border="1" cellpadding="6" style="border-collapse:collapse;width:100%">';
+  html += '<tr><th>Appareil</th><th>Qté</th><th>Prix unitaire</th><th>Total HT</th><th>TVA</th><th>TTC</th></tr>';
+  let totalHT = 0, totalTVA = 0, totalTTC = 0;
+  lignes.forEach(div => {
+    const id = div.id.split('-')[1];
+    const type = document.getElementById('type-' + id).value;
+    const t = TARIFS[type];
+    const qte = type === 'solaire' ? (parseInt(document.getElementById('panneaux-' + id).value) || 0) : 1;
+    const ht = t.prix * qte;
+    const tva = ht * t.tva;
+    const ttc = ht + tva;
+    totalHT += ht; totalTVA += tva; totalTTC += ttc;
+    html += `<tr><td>${t.lib}</td><td>${qte}</td><td>${t.prix.toFixed(2)} €</td><td>${ht.toFixed(2)} €</td><td>${tva.toFixed(2)} €</td><td>${ttc.toFixed(2)} €</td></tr>`;
+  });
+  html += `<tr class="total"><td colspan="3">Total</td><td>${totalHT.toFixed(2)} €</td><td>${totalTVA.toFixed(2)} €</td><td>${totalTTC.toFixed(2)} €</td></tr></table>`;
+  document.getElementById('resultat').innerHTML = html;
+  return { totalHT, totalTVA, totalTTC };
+}
+
+function envoyer() {
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const client = {
+    nom: document.getElementById('client-nom')?.value || '',
+    tel: document.getElementById('client-tel')?.value || '',
+    email: document.getElementById('client-email')?.value || '',
+    adresse: document.getElementById('client-adresse')?.value || ''
+  };
+  const devis = { mode, client, lignes: [], date: new Date().toISOString() };
+  document.querySelectorAll('.ligne').forEach(div => {
+    const id = div.id.split('-')[1];
+    devis.lignes.push({
+      type: document.getElementById('type-' + id).value,
+      annee: document.getElementById('annee-' + id).value,
+      parMoi: document.getElementById('parmoi-' + id).checked,
+      puissance: document.getElementById('puissance-' + id).value,
+      panneaux: document.getElementById('panneaux-' + id).value,
+      modeSolaire: document.getElementById('mode-solaire-' + id).value
+    });
+  });
+  // Envoi via webhook ou affichage
+  alert('Devis prêt à envoyer. En mode production, il part automatiquement à contact@pyrenees-energie-solution.fr.');
+  console.log(JSON.stringify(devis, null, 2));
+}
+
+ajouterLigne();
+</script>
+</body>
+</html>
