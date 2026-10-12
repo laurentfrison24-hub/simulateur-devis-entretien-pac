@@ -101,8 +101,23 @@ button.danger { background: #c0392b; }
   border: 1px solid #d0d7de;
 }
 h2 { color: var(--bleu-profond); margin-top: 1.8rem; }
-table { background: var(--blanc); border-radius: 8px; overflow: hidden; }
-th { background: var(--bleu-profond); color: var(--blanc); }
+.table-wrapper { overflow-x: auto; margin: 1rem 0; }
+table {
+  background: var(--blanc);
+  border-radius: 8px;
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 600px;
+  font-size: 0.9rem;
+}
+th, td {
+  padding: 8px 6px;
+  text-align: center;
+  white-space: nowrap;
+  border: 1px solid #d0d7de;
+}
+th { background: var(--bleu-profond); color: var(--blanc); font-weight: 600; }
+td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .field-hidden { display: none; }
 .photos { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed #d0d7de; }
 .photo-preview { max-width: 120px; max-height: 90px; margin: 0.3rem 0.5rem 0.3rem 0; border-radius: 6px; border: 1px solid #ccc; }
@@ -247,8 +262,8 @@ function ajouterLigne() {
 
 function calculer() {
   const lignes = document.querySelectorAll('.ligne');
-  let html = '<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;border-color:#d0d7de">';
-  html += '<tr><th>Appareil</th><th>Qté</th><th>Prix unitaire TTC</th><th>Total HT</th><th>TVA</th><th>TTC</th></tr>';
+  let html = '<div class="table-wrapper"><table>';
+  html += '<tr><th>Appareil</th><th>Qté</th><th>PU TTC</th><th>Total HT</th><th>TVA</th><th>TTC</th></tr>';
   let totalHT = 0, totalTVA = 0, totalTTC = 0;
   lignes.forEach(div => {
     const id = div.id.split('-')[1];
@@ -279,7 +294,7 @@ function calculer() {
     totalHT += ht; totalTVA += tva; totalTTC += ttc;
     html += `<tr><td>${desc}</td><td>${qte}</td><td>${ttcUnitaire.toFixed(2)} €</td><td>${ht.toFixed(2)} €</td><td>${tva.toFixed(2)} €</td><td>${ttc.toFixed(2)} €</td></tr>`;
   });
-  html += `<tr class="total"><td colspan="3">Total</td><td>${totalHT.toFixed(2)} €</td><td>${totalTVA.toFixed(2)} €</td><td>${totalTTC.toFixed(2)} €</td></tr></table>`;
+  html += `<tr class="total"><td colspan="3">Total</td><td>${totalHT.toFixed(2)} €</td><td>${totalTVA.toFixed(2)} €</td><td>${totalTTC.toFixed(2)} €</td></tr></table></div>`;
   document.getElementById('resultat').innerHTML = html;
   return { totalHT, totalTVA, totalTTC };
 }
