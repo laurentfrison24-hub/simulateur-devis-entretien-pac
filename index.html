@@ -133,6 +133,7 @@ td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .alerte.overdue { background: #ffebee; color: #c62828; }
 .alerte.legal { background: #e3f2fd; color: #1565c0; }
 .rappel { margin: 0.4rem 0; font-size: 0.85rem; color: #1565c0; }
+.planning-item { background: white; border: 1px solid #d0d7de; border-radius: 8px; padding: 0.8rem; margin: 0.5rem 0; }
 </style>
 </head>
 <body>
@@ -168,6 +169,13 @@ td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 <div id="resultat"></div>
 <button onclick="calculer()">Calculer le devis</button>
 <button onclick="envoyer()">Envoyer le devis</button>
+
+<h2>Planning des entretiens (rappel M-1)</h2>
+<p>Sélectionne un mois pour voir tous les entretiens à planifier ce mois-là (rappel émis le mois précédent).</p>
+<label>Mois à consulter
+  <input type="month" id="mois-planning" onchange="afficherPlanning()">
+</label>
+<div id="planning"></div>
 
 <script>
 const TARIFS = {
@@ -236,7 +244,6 @@ function calculerAlerte(id) {
   let lastDateStr = '';
   let rappelDate = '';
 
-  // Priorité : date du rapport d'intervention (nouvelle référence) > dernier entretien > année installation
   const referenceDate = dateRapport || dernierEntretien;
 
   if (referenceDate) {
@@ -245,7 +252,6 @@ function calculerAlerte(id) {
     nextDate = new Date(refDate);
     nextDate.setFullYear(nextDate.getFullYear() + intervalYears);
 
-    // Rappel 1 mois avant
     const rappel = new Date(nextDate);
     rappel.setMonth(rappel.getMonth() - 1);
     rappelDate = rappel.toISOString().slice(0,10);
@@ -291,7 +297,6 @@ function updateAlerte(id) {
   alerteDiv.dataset.nextDate = info.nextDate || '';
   alerteDiv.dataset.rappelDate = info.rappelDate || '';
 
-  // Afficher le rappel prévu
   let rappelEl = document.getElementById('rappel-' + id);
   if (!rappelEl) {
     rappelEl = document.createElement('div');
@@ -407,6 +412,41 @@ function calculer() {
   return { totalHT, totalTVA, totalTTC };
 }
 
+function afficherPlanning() {
+  const mois = document.getElementById('mois-planning').value;
+  if (!mois) return;
+  const [annee, moisNum] = mois.split('-');
+  const planningDiv = document.getElementById('planning');
+  planningDiv.innerHTML = '';
+
+  const items = [];
+  document.querySelectorAll('.ligne').forEach(div => {
+    const id = div.id.split('-')[1];
+    const alerteEl = document.getElementById('alerte-' + id);
+    if (!alerteEl || !alerteEl.dataset.nextDate) return;
+
+    const nextDate = alerteEl.dataset.nextDate;
+    if (nextDate.startsWith(mois)) {
+      const type = document.getElementById('type-' + id).value;
+      const lib = TARIFS[type]?.lib || type;
+      const clientNom = document.getElementById('client-nom')?.value || 'Client';
+      items.push({ lib, nextDate, clientNom, id });
+    }
+  });
+
+  if (items.length === 0) {
+    planningDiv.innerHTML = '<p>Aucun entretien prévu pour ce mois.</p>';
+    return;
+  }
+
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'planning-item';
+    el.innerHTML = `<strong>${item.lib}</strong> — ${item.clientNom}<br>Entretien prévu : ${item.nextDate}<br><em>Rappel à émettre le mois précédent (M-1)</em>`;
+    planningDiv.appendChild(el);
+  });
+}
+
 function envoyer() {
   const mode = document.querySelector('input[name="mode"]:checked').value;
   const client = {
@@ -446,7 +486,7 @@ function envoyer() {
       }
     });
   });
-  alert('Devis prêt. Date du rapport d\'intervention et date de rappel (1 mois avant) enregistrées pour les prochains suivis.');
+  alert('Devis prêt. Dates de rappel M-1 enregistrées.');
   console.log(JSON.stringify(devis, null, 2));
 }
 
