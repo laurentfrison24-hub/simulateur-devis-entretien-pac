@@ -121,6 +121,16 @@ td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .field-hidden { display: none; }
 .photos { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed #d0d7de; }
 .photo-preview { max-width: 120px; max-height: 90px; margin: 0.3rem 0.5rem 0.3rem 0; border-radius: 6px; border: 1px solid #ccc; }
+.alerte {
+  margin: 0.6rem 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.alerte.ok { background: #e8f5e9; color: #2e7d32; }
+.alerte.warning { background: #fff3e0; color: #ef6c00; }
+.alerte.overdue { background: #ffebee; color: #c62828; }
 </style>
 </head>
 <body>
@@ -202,6 +212,38 @@ function previewPhoto(input, previewId) {
   }
 }
 
+function calculerAlerte(annee) {
+  if (!annee || annee < 2000) return { text: 'Année non renseignée', level: 'warning', nextYear: null };
+  const currentYear = new Date().getFullYear();
+  const age = currentYear - annee;
+  const nextYear = annee + Math.floor(age) + 1;
+  let text = '';
+  let level = 'ok';
+
+  if (age <= 0) {
+    text = `Équipement récent (${annee}). Prochain entretien conseillé en ${nextYear}.`;
+    level = 'ok';
+  } else if (age === 1) {
+    text = `Installé en ${annee}. Entretien annuel recommandé cette année (${currentYear}).`;
+    level = 'warning';
+  } else {
+    const enRetard = age > 1;
+    text = `Installé en ${annee} (${age} ans). Entretien annuel recommandé. Prochaine échéance : ${nextYear}.`;
+    level = enRetard ? 'overdue' : 'warning';
+  }
+  return { text, level, nextYear, age };
+}
+
+function updateAlerte(id) {
+  const annee = parseInt(document.getElementById('annee-' + id).value);
+  const alerteDiv = document.getElementById('alerte-' + id);
+  const info = calculerAlerte(annee);
+  alerteDiv.className = 'alerte ' + info.level;
+  alerteDiv.textContent = '⚠️ ' + info.text;
+  alerteDiv.dataset.nextYear = info.nextYear || '';
+  alerteDiv.dataset.level = info.level;
+}
+
 function ajouterLigne() {
   const id = ++ligneId;
   const div = document.createElement('div');
@@ -216,7 +258,8 @@ function ajouterLigne() {
       <option value="solaire">Panneaux solaires</option>
       <option value="ballon">Ballon eau chaude</option>
     </select></label>
-    <label>Année d'installation <input id="annee-${id}" type="number" min="2000" max="2030" value="2020"></label>
+    <label>Année d'installation <input id="annee-${id}" type="number" min="2000" max="2030" value="2020" oninput="updateAlerte(${id})"></label>
+    <div id="alerte-${id}" class="alerte"></div>
     <label>Installé par moi <input id="parmoi-${id}" type="checkbox"></label>
 
     <div id="puissance-wrap-${id}">
@@ -258,12 +301,13 @@ function ajouterLigne() {
   `;
   document.getElementById('lignes').appendChild(div);
   toggleFields(id);
+  updateAlerte(id);
 }
 
 function calculer() {
   const lignes = document.querySelectorAll('.ligne');
   let html = '<div class="table-wrapper"><table>';
-  html += '<tr><th>Appareil</th><th>Qté</th><th>PU TTC</th><th>Total HT</th><th>TVA</th><th>TTC</th></tr>';
+  html += '<tr><th>Appareil</th><th>Alerte</th><th>Qté</th><th>PU TTC</th><th>Total HT</th><th>TVA</th><th>TTC</th></tr>';
   let totalHT = 0, totalTVA = 0, totalTTC = 0;
   lignes.forEach(div => {
     const id = div.id.split('-')[1];
@@ -286,15 +330,19 @@ function calculer() {
     const hasPhotos = document.getElementById('photo-int-' + id).files.length || document.getElementById('photo-ext-' + id).files.length || document.getElementById('photo-fiche-' + id).files.length;
     if (hasPhotos) desc += ' 📷';
 
+    const alerteEl = document.getElementById('alerte-' + id);
+    const alerteText = alerteEl ? alerteEl.textContent.replace('⚠️ ', '') : '';
+    const alerteLevel = alerteEl ? alerteEl.dataset.level : '';
+
     const ttcUnitaire = t.prixTTC;
     const ttc = ttcUnitaire * qte;
     const ht = ttc / (1 + t.tva);
     const tva = ttc - ht;
 
     totalHT += ht; totalTVA += tva; totalTTC += ttc;
-    html += `<tr><td>${desc}</td><td>${qte}</td><td>${ttcUnitaire.toFixed(2)} €</td><td>${ht.toFixed(2)} €</td><td>${tva.toFixed(2)} €</td><td>${ttc.toFixed(2)} €</td></tr>`;
+    html += `<tr><td>${desc}</td><td class="alerte ${alerteLevel}" style="font-size:0.8rem">${alerteText}</td><td>${qte}</td><td>${ttcUnitaire.toFixed(2)} €</td><td>${ht.toFixed(2)} €</td><td>${tva.toFixed(2)} €</td><td>${ttc.toFixed(2)} €</td></tr>`;
   });
-  html += `<tr class="total"><td colspan="3">Total</td><td>${totalHT.toFixed(2)} €</td><td>${totalTVA.toFixed(2)} €</td><td>${totalTTC.toFixed(2)} €</td></tr></table></div>`;
+  html += `<tr class="total"><td colspan="4">Total</td><td>${totalHT.toFixed(2)} €</td><td>${totalTVA.toFixed(2)} €</td><td>${totalTTC.toFixed(2)} €</td></tr></table></div>`;
   document.getElementById('resultat').innerHTML = html;
   return { totalHT, totalTVA, totalTTC };
 }
@@ -311,6 +359,7 @@ function envoyer() {
   document.querySelectorAll('.ligne').forEach(div => {
     const id = div.id.split('-')[1];
     const type = document.getElementById('type-' + id).value;
+    const alerteEl = document.getElementById('alerte-' + id);
     devis.lignes.push({
       type,
       annee: document.getElementById('annee-' + id).value,
@@ -320,6 +369,11 @@ function envoyer() {
       modeSolaire: document.getElementById('mode-solaire-' + id)?.value || '',
       typeBallon: document.getElementById('type-ballon-' + id)?.value || '',
       litrage: document.getElementById('litrage-' + id)?.value || '',
+      alerte: {
+        text: alerteEl ? alerteEl.textContent : '',
+        level: alerteEl ? alerteEl.dataset.level : '',
+        nextYear: alerteEl ? alerteEl.dataset.nextYear : ''
+      },
       photos: {
         int: document.getElementById('photo-int-' + id).files[0]?.name || '',
         ext: document.getElementById('photo-ext-' + id).files[0]?.name || '',
@@ -327,7 +381,7 @@ function envoyer() {
       }
     });
   });
-  alert('Devis prêt à envoyer. En mode production, il part automatiquement à contact@pyrenees-energie-solution.fr. Les photos sont sélectionnées localement.');
+  alert('Devis prêt à envoyer. L\'alerte d\'entretien est conservée dans les données pour le compte rendu d\'intervention.');
   console.log(JSON.stringify(devis, null, 2));
 }
 
