@@ -101,6 +101,8 @@ h2 { color: var(--bleu-profond); margin-top: 1.8rem; }
 table { background: var(--blanc); border-radius: 8px; overflow: hidden; }
 th { background: var(--bleu-profond); color: var(--blanc); }
 .field-hidden { display: none; }
+.photos { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed #d0d7de; }
+.photo-preview { max-width: 120px; max-height: 90px; margin: 0.3rem 0.5rem 0.3rem 0; border-radius: 6px; border: 1px solid #ccc; }
 </style>
 </head>
 <body>
@@ -168,6 +170,21 @@ function toggleFields(id) {
   document.getElementById('solaire-wrap-' + id).classList.toggle('field-hidden', !isSolaire);
 }
 
+function previewPhoto(input, previewId) {
+  const preview = document.getElementById(previewId);
+  preview.innerHTML = '';
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.className = 'photo-preview';
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
 function ajouterLigne() {
   const id = ++ligneId;
   const div = document.createElement('div');
@@ -210,6 +227,16 @@ function ajouterLigne() {
       </select></label>
     </div>
 
+    <div class="photos">
+      <strong>Photos de l'équipement</strong>
+      <label>Installation intérieure <input id="photo-int-${id}" type="file" accept="image/*" onchange="previewPhoto(this, 'preview-int-${id}')"></label>
+      <div id="preview-int-${id}"></div>
+      <label>Installation extérieure <input id="photo-ext-${id}" type="file" accept="image/*" onchange="previewPhoto(this, 'preview-ext-${id}')"></label>
+      <div id="preview-ext-${id}"></div>
+      <label>Fiche collée / étiquette <input id="photo-fiche-${id}" type="file" accept="image/*" onchange="previewPhoto(this, 'preview-fiche-${id}')"></label>
+      <div id="preview-fiche-${id}"></div>
+    </div>
+
     <button class="danger" onclick="document.getElementById('ligne-${id}').remove()">Supprimer</button>
   `;
   document.getElementById('lignes').appendChild(div);
@@ -238,6 +265,9 @@ function calculer() {
       desc += ` — ${typeB}`;
       if (lit) desc += ` ${lit} L`;
     }
+
+    const hasPhotos = document.getElementById('photo-int-' + id).files.length || document.getElementById('photo-ext-' + id).files.length || document.getElementById('photo-fiche-' + id).files.length;
+    if (hasPhotos) desc += ' 📷';
 
     const ht = t.prix * qte;
     const tva = ht * t.tva;
@@ -270,10 +300,15 @@ function envoyer() {
       panneaux: document.getElementById('panneaux-' + id)?.value || '',
       modeSolaire: document.getElementById('mode-solaire-' + id)?.value || '',
       typeBallon: document.getElementById('type-ballon-' + id)?.value || '',
-      litrage: document.getElementById('litrage-' + id)?.value || ''
+      litrage: document.getElementById('litrage-' + id)?.value || '',
+      photos: {
+        int: document.getElementById('photo-int-' + id).files[0]?.name || '',
+        ext: document.getElementById('photo-ext-' + id).files[0]?.name || '',
+        fiche: document.getElementById('photo-fiche-' + id).files[0]?.name || ''
+      }
     });
   });
-  alert('Devis prêt à envoyer. En mode production, il part automatiquement à contact@pyrenees-energie-solution.fr.');
+  alert('Devis prêt à envoyer. En mode production, il part automatiquement à contact@pyrenees-energie-solution.fr. Les photos sont sélectionnées localement.');
   console.log(JSON.stringify(devis, null, 2));
 }
 
