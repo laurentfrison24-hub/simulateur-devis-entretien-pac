@@ -131,6 +131,7 @@ td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .alerte.ok { background: #e8f5e9; color: #2e7d32; }
 .alerte.warning { background: #fff3e0; color: #ef6c00; }
 .alerte.overdue { background: #ffebee; color: #c62828; }
+.alerte.legal { background: #e3f2fd; color: #1565c0; }
 </style>
 </head>
 <body>
@@ -195,6 +196,7 @@ function toggleFields(id) {
   document.getElementById('puissance-wrap-' + id).classList.toggle('field-hidden', !isClimPac);
   document.getElementById('ballon-wrap-' + id).classList.toggle('field-hidden', !isBallon);
   document.getElementById('solaire-wrap-' + id).classList.toggle('field-hidden', !isSolaire);
+  updateAlerte(id);
 }
 
 function previewPhoto(input, previewId) {
@@ -212,36 +214,58 @@ function previewPhoto(input, previewId) {
   }
 }
 
-function calculerAlerte(annee) {
+function calculerAlerte(id) {
+  const annee = parseInt(document.getElementById('annee-' + id).value);
+  const type = document.getElementById('type-' + id).value;
+  const puissance = parseFloat(document.getElementById('puissance-' + id)?.value) || 0;
+
   if (!annee || annee < 2000) return { text: 'Année non renseignée', level: 'warning', nextYear: null };
+
   const currentYear = new Date().getFullYear();
   const age = currentYear - annee;
-  const nextYear = annee + Math.floor(age) + 1;
+  const isClimPac = type.startsWith('clim') || type.startsWith('pac');
+  const legalObligation = isClimPac && puissance >= 4;
+
   let text = '';
   let level = 'ok';
+  let nextYear = annee + 1;
 
-  if (age <= 0) {
-    text = `Équipement récent (${annee}). Prochain entretien conseillé en ${nextYear}.`;
-    level = 'ok';
-  } else if (age === 1) {
-    text = `Installé en ${annee}. Entretien annuel recommandé cette année (${currentYear}).`;
-    level = 'warning';
+  if (legalObligation) {
+    // Décret 2020-912 : minimum tous les 2 ans
+    const cycles = Math.floor(age / 2);
+    nextYear = annee + (cycles + 1) * 2;
+    if (age < 2) {
+      text = `Installé en ${annee} (≥ 4 kW). Obligation légale tous les 2 ans (décret 2020-912). Prochaine échéance légale : ${nextYear}. Conseil commercial : entretien annuel.`;
+      level = 'legal';
+    } else {
+      const enRetardLegal = (currentYear - annee) >= 2;
+      text = `Installé en ${annee} (${age} ans, ≥ 4 kW). Obligation légale tous les 2 ans. Prochaine échéance légale : ${nextYear}. Entretien annuel recommandé.`;
+      level = enRetardLegal ? 'overdue' : 'warning';
+    }
   } else {
-    const enRetard = age > 1;
-    text = `Installé en ${annee} (${age} ans). Entretien annuel recommandé. Prochaine échéance : ${nextYear}.`;
-    level = enRetard ? 'overdue' : 'warning';
+    // Conseil annuel pour tout le reste (ou < 4 kW)
+    nextYear = annee + age + 1;
+    if (age <= 0) {
+      text = `Équipement récent (${annee}). Entretien annuel conseillé dès ${nextYear}.`;
+      level = 'ok';
+    } else {
+      text = `Installé en ${annee} (${age} ans). Entretien annuel recommandé (conseil commercial). Prochaine échéance : ${nextYear}.`;
+      level = age >= 1 ? 'warning' : 'ok';
+    }
   }
-  return { text, level, nextYear, age };
+
+  return { text, level, nextYear, age, legal: legalObligation };
 }
 
 function updateAlerte(id) {
-  const annee = parseInt(document.getElementById('annee-' + id).value);
   const alerteDiv = document.getElementById('alerte-' + id);
-  const info = calculerAlerte(annee);
+  if (!alerteDiv) return;
+  const info = calculerAlerte(id);
   alerteDiv.className = 'alerte ' + info.level;
   alerteDiv.textContent = '⚠️ ' + info.text;
   alerteDiv.dataset.nextYear = info.nextYear || '';
   alerteDiv.dataset.level = info.level;
+  alerteDiv.dataset.legal = info.legal ? 'oui' : 'non';
 }
 
 function ajouterLigne() {
@@ -263,7 +287,7 @@ function ajouterLigne() {
     <label>Installé par moi <input id="parmoi-${id}" type="checkbox"></label>
 
     <div id="puissance-wrap-${id}">
-      <label>Puissance (kW) <input id="puissance-${id}" type="number" step="0.1" min="0" placeholder="ex: 3.5"></label>
+      <label>Puissance (kW) <input id="puissance-${id}" type="number" step="0.1" min="0" placeholder="ex: 3.5" oninput="updateAlerte(${id})"></label>
     </div>
 
     <div id="ballon-wrap-${id}" class="field-hidden">
@@ -372,7 +396,8 @@ function envoyer() {
       alerte: {
         text: alerteEl ? alerteEl.textContent : '',
         level: alerteEl ? alerteEl.dataset.level : '',
-        nextYear: alerteEl ? alerteEl.dataset.nextYear : ''
+        nextYear: alerteEl ? alerteEl.dataset.nextYear : '',
+        legal: alerteEl ? alerteEl.dataset.legal : ''
       },
       photos: {
         int: document.getElementById('photo-int-' + id).files[0]?.name || '',
@@ -381,7 +406,7 @@ function envoyer() {
       }
     });
   });
-  alert('Devis prêt à envoyer. L\'alerte d\'entretien est conservée dans les données pour le compte rendu d\'intervention.');
+  alert('Devis prêt à envoyer. L\'alerte (incluant l\'obligation légale) est conservée pour le compte rendu.');
   console.log(JSON.stringify(devis, null, 2));
 }
 
