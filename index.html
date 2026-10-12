@@ -134,6 +134,16 @@ td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .alerte.legal { background: #e3f2fd; color: #1565c0; }
 .rappel { margin: 0.4rem 0; font-size: 0.85rem; color: #1565c0; }
 .planning-item { background: white; border: 1px solid #d0d7de; border-radius: 8px; padding: 0.8rem; margin: 0.5rem 0; }
+.checklist {
+  background: var(--blanc);
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+.checklist h3 { color: var(--bleu-profond); margin-top: 0; }
+.checklist label { display: flex; align-items: flex-start; margin: 0.4rem 0; font-weight: normal; }
+.checklist input[type="checkbox"] { margin-right: 0.6rem; margin-top: 0.2rem; }
 </style>
 </head>
 <body>
@@ -170,6 +180,19 @@ td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 <button onclick="calculer()">Calculer le devis</button>
 <button onclick="envoyer()">Envoyer le devis</button>
 
+<h2>Checklists d'entretien</h2>
+<p>Sélectionne un type d'équipement pour afficher la checklist correspondante (ADEME + fabricants).</p>
+<label>Type d'équipement
+  <select id="checklist-type" onchange="afficherChecklist()">
+    <option value="">— Choisir —</option>
+    <option value="pac-air-eau">PAC air-eau</option>
+    <option value="pac-air-air">PAC air-air / Clim</option>
+    <option value="ballon">Ballon eau chaude</option>
+    <option value="solaire">Panneaux solaires</option>
+  </select>
+</label>
+<div id="checklist-container"></div>
+
 <h2>Planning des entretiens (rappel M-1)</h2>
 <p>Sélectionne un mois pour voir tous les entretiens à planifier ce mois-là (rappel émis le mois précédent).</p>
 <label>Mois à consulter
@@ -185,6 +208,64 @@ const TARIFS = {
   "pac-air-eau": { lib: "PAC air-eau", prixTTC: 225, tva: 0.20 },
   "solaire": { lib: "Panneaux solaires", prixTTC: 15, tva: 0.055, unitaire: true },
   "ballon": { lib: "Ballon eau chaude", prixTTC: 175, tva: 0.20 }
+};
+
+const CHECKLISTS = {
+  "pac-air-eau": [
+    "Relevé des températures unité intérieure / extérieure et vérification du bon fonctionnement",
+    "Vérification du fonctionnement de l’inversion de cycle (si applicable)",
+    "Vérification de l’enclenchement des appoints électriques",
+    "Mesure des tensions électriques statiques et dynamiques",
+    "Contrôle d’étanchéité du circuit frigorifique (recherche de fuite)",
+    "Vérification et nettoyage de l’échangeur de l’unité extérieure",
+    "Contrôle de la pression de gonflage du vase d’expansion",
+    "Vérification et nettoyage du filtre sur la boucle d’eau",
+    "Contrôle de l’embouement du circuit hydraulique",
+    "Purge des bulles d’air du circuit (si accessible)",
+    "Vérification du fonctionnement des circulateurs",
+    "Contrôle de la régulation et de la loi d’eau",
+    "Vérification des sondes de température",
+    "Contrôle de la programmation horaire",
+    "Remise de l’attestation d’entretien et conseils d’usage"
+  ],
+  "pac-air-air": [
+    "Relevé des températures de soufflage et de reprise",
+    "Vérification du fonctionnement en mode chaud et froid",
+    "Contrôle d’étanchéité du circuit frigorifique et des pressions",
+    "Nettoyage des filtres de l’unité intérieure",
+    "Nettoyage et désinfection de l’échangeur intérieur et du bac à condensats",
+    "Vérification de l’écoulement des condensats",
+    "Nettoyage de l’échangeur de l’unité extérieure",
+    "Contrôle du ventilateur et absence de vibrations",
+    "Mesure des tensions et intensités électriques",
+    "Vérification des connexions électriques et des sécurités",
+    "Test de la télécommande et des fonctions",
+    "Contrôle du cycle de dégivrage (si applicable)",
+    "Remise de l’attestation d’entretien et conseils"
+  ],
+  "ballon": [
+    "Inspection visuelle générale de l’appareil et des raccordements",
+    "Recherche de fuites éventuelles",
+    "Nettoyage de l’évaporateur et des grilles d’air",
+    "Vérification de l’évacuation des condensats",
+    "Contrôle du groupe de sécurité",
+    "Vérification de la résistance d’appoint",
+    "Contrôle de l’anode anticorrosion",
+    "Contrôle des températures d’eau chaude et de la régulation",
+    "Contrôle électrique général",
+    "Conseils sur le détartrage et la fréquence de vérification de l’anode"
+  ],
+  "solaire": [
+    "Inspection visuelle des modules (fissures, encrassement, impacts)",
+    "Contrôle des structures de fixation et des supports",
+    "Vérification des câbles DC/AC et serrage des borniers",
+    "Contrôle de l’onduleur (ventilation, filtres, alarmes)",
+    "Nettoyage des modules (eau déminéralisée, brosse douce)",
+    "Vérification des protections (parafoudres, disjoncteurs)",
+    "Contrôle de la continuité de mise à la terre",
+    "Relevé de production et comparaison avec les valeurs attendues",
+    "Conseils sur le monitoring et la fréquence de nettoyage"
+  ]
 };
 
 let ligneId = 0;
@@ -369,6 +450,27 @@ function ajouterLigne() {
   updateAlerte(id);
 }
 
+function afficherChecklist() {
+  const type = document.getElementById('checklist-type').value;
+  const container = document.getElementById('checklist-container');
+  container.innerHTML = '';
+  if (!type || !CHECKLISTS[type]) return;
+
+  const title = {
+    'pac-air-eau': 'PAC air-eau',
+    'pac-air-air': 'PAC air-air / Climatisation',
+    'ballon': 'Ballon eau chaude thermodynamique',
+    'solaire': 'Installation photovoltaïque'
+  }[type];
+
+  let html = `<div class="checklist"><h3>${title}</h3>`;
+  CHECKLISTS[type].forEach((item, i) => {
+    html += `<label><input type="checkbox" id="cl-${type}-${i}"> ${item}</label>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
 function calculer() {
   const lignes = document.querySelectorAll('.ligne');
   let html = '<div class="table-wrapper"><table>';
@@ -415,7 +517,6 @@ function calculer() {
 function afficherPlanning() {
   const mois = document.getElementById('mois-planning').value;
   if (!mois) return;
-  const [annee, moisNum] = mois.split('-');
   const planningDiv = document.getElementById('planning');
   planningDiv.innerHTML = '';
 
@@ -486,7 +587,7 @@ function envoyer() {
       }
     });
   });
-  alert('Devis prêt. Dates de rappel M-1 enregistrées.');
+  alert('Devis prêt. Les checklists sont disponibles dans l\'application.');
   console.log(JSON.stringify(devis, null, 2));
 }
 
