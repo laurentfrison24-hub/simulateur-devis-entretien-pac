@@ -144,12 +144,12 @@ th { background: var(--bleu-profond); color: var(--blanc); }
 
 <script>
 const TARIFS = {
-  "clim-mono": { lib: "Clim monosplit", prix: 130, tva: 0.20 },
-  "clim-multi": { lib: "Clim multisplit", prix: 180, tva: 0.20 },
-  "pac-air-air": { lib: "PAC air-air", prix: 175, tva: 0.20 },
-  "pac-air-eau": { lib: "PAC air-eau", prix: 225, tva: 0.20 },
-  "solaire": { lib: "Panneaux solaires", prix: 15, tva: 0.055, unitaire: true },
-  "ballon": { lib: "Ballon eau chaude", prix: 175, tva: 0.20 }
+  "clim-mono": { lib: "Clim monosplit", prixTTC: 130, tva: 0.20 },
+  "clim-multi": { lib: "Clim multisplit", prixTTC: 180, tva: 0.20 },
+  "pac-air-air": { lib: "PAC air-air", prixTTC: 175, tva: 0.20 },
+  "pac-air-eau": { lib: "PAC air-eau", prixTTC: 225, tva: 0.20 },
+  "solaire": { lib: "Panneaux solaires", prixTTC: 15, tva: 0.055, unitaire: true },
+  "ballon": { lib: "Ballon eau chaude", prixTTC: 175, tva: 0.20 }
 };
 
 let ligneId = 0;
@@ -248,7 +248,7 @@ function ajouterLigne() {
 function calculer() {
   const lignes = document.querySelectorAll('.ligne');
   let html = '<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;border-color:#d0d7de">';
-  html += '<tr><th>Appareil</th><th>Qté</th><th>Prix unitaire</th><th>Total HT</th><th>TVA</th><th>TTC</th></tr>';
+  html += '<tr><th>Appareil</th><th>Qté</th><th>Prix unitaire TTC</th><th>Total HT</th><th>TVA</th><th>TTC</th></tr>';
   let totalHT = 0, totalTVA = 0, totalTTC = 0;
   lignes.forEach(div => {
     const id = div.id.split('-')[1];
@@ -271,11 +271,13 @@ function calculer() {
     const hasPhotos = document.getElementById('photo-int-' + id).files.length || document.getElementById('photo-ext-' + id).files.length || document.getElementById('photo-fiche-' + id).files.length;
     if (hasPhotos) desc += ' 📷';
 
-    const ht = t.prix * qte;
-    const tva = ht * t.tva;
-    const ttc = ht + tva;
+    const ttcUnitaire = t.prixTTC;
+    const ttc = ttcUnitaire * qte;
+    const ht = ttc / (1 + t.tva);
+    const tva = ttc - ht;
+
     totalHT += ht; totalTVA += tva; totalTTC += ttc;
-    html += `<tr><td>${desc}</td><td>${qte}</td><td>${t.prix.toFixed(2)} €</td><td>${ht.toFixed(2)} €</td><td>${tva.toFixed(2)} €</td><td>${ttc.toFixed(2)} €</td></tr>`;
+    html += `<tr><td>${desc}</td><td>${qte}</td><td>${ttcUnitaire.toFixed(2)} €</td><td>${ht.toFixed(2)} €</td><td>${tva.toFixed(2)} €</td><td>${ttc.toFixed(2)} €</td></tr>`;
   });
   html += `<tr class="total"><td colspan="3">Total</td><td>${totalHT.toFixed(2)} €</td><td>${totalTVA.toFixed(2)} €</td><td>${totalTTC.toFixed(2)} €</td></tr></table>`;
   document.getElementById('resultat').innerHTML = html;
