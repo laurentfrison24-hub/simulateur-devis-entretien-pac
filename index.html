@@ -467,7 +467,17 @@ function afficherChecklist() {
   CHECKLISTS[type].forEach((item, i) => {
     html += `<label><input type="checkbox" id="cl-${type}-${i}"> ${item}</label>`;
   });
-  html += '</div>';
+  html += `
+    <div class="photos" style="margin-top:1.2rem">
+      <strong>Photos de l'intervention</strong>
+      <label>Photo avant intervention <input type="file" accept="image/*" id="cl-photo-avant-${type}" onchange="previewPhoto(this, 'cl-preview-avant-${type}')"></label>
+      <div id="cl-preview-avant-${type}"></div>
+      <label>Photo après intervention <input type="file" accept="image/*" id="cl-photo-apres-${type}" onchange="previewPhoto(this, 'cl-preview-apres-${type}')"></label>
+      <div id="cl-preview-apres-${type}"></div>
+      <label>Photo anomalie / détail <input type="file" accept="image/*" id="cl-photo-detail-${type}" onchange="previewPhoto(this, 'cl-preview-detail-${type}')"></label>
+      <div id="cl-preview-detail-${type}"></div>
+    </div>
+  </div>`;
   container.innerHTML = html;
 }
 
@@ -587,7 +597,7 @@ function envoyer() {
       }
     });
   });
-  alert('Devis prêt. Les checklists sont disponibles dans l\'application.');
+  alert('Devis prêt. Les checklists avec photos sont disponibles.');
   console.log(JSON.stringify(devis, null, 2));
 }
 
