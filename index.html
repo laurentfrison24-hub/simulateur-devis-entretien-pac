@@ -3,20 +3,108 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simulateur de devis d'entretien</title>
+<title>Simulateur de devis d'entretien — Pyrénées Énergies Solutions</title>
 <style>
-body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
-fieldset { margin: 1rem 0; padding: 1rem; }
-label { display: block; margin: 0.5rem 0; }
-input, select { padding: 0.4rem; width: 100%; max-width: 300px; }
-button { padding: 0.6rem 1.2rem; margin: 0.5rem 0.5rem 0.5rem 0; }
-.ligne { border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; }
-.total { font-weight: bold; font-size: 1.2rem; }
-.mode-badge { background: #e0e0e0; padding: 0.3rem 0.6rem; border-radius: 4px; }
+:root {
+  --bleu-profond: #123B5D;
+  --bleu-energie: #1E6FA8;
+  --turquoise: #2A9D8F;
+  --vert: #5FAF5B;
+  --gris-fonce: #1C2833;
+  --gris-clair: #F2F6F8;
+  --blanc: #FFFFFF;
+}
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+  background: var(--gris-clair);
+  color: var(--gris-fonce);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  line-height: 1.5;
+}
+header {
+  background: var(--bleu-profond);
+  color: var(--blanc);
+  padding: 1.5rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+header h1 {
+  margin: 0 0 0.3rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+header .signature {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.9;
+  font-weight: 400;
+}
+fieldset {
+  background: var(--blanc);
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+legend {
+  font-weight: 700;
+  color: var(--bleu-profond);
+  padding: 0 0.5rem;
+}
+label { display: block; margin: 0.6rem 0; }
+input, select {
+  padding: 0.5rem;
+  width: 100%;
+  max-width: 320px;
+  border: 1px solid #c8d0d6;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+button {
+  background: var(--bleu-energie);
+  color: var(--blanc);
+  border: none;
+  padding: 0.65rem 1.3rem;
+  margin: 0.5rem 0.5rem 0.5rem 0;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:hover { background: #155a8a; }
+button.secondary { background: var(--turquoise); }
+button.danger { background: #c0392b; }
+.ligne {
+  background: var(--blanc);
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+.total { font-weight: 700; font-size: 1.15rem; color: var(--bleu-profond); }
+.mode-badge {
+  background: var(--blanc);
+  color: var(--bleu-profond);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  display: inline-block;
+  font-weight: 600;
+  border: 1px solid #d0d7de;
+}
+h2 { color: var(--bleu-profond); margin-top: 1.8rem; }
+table { background: var(--blanc); border-radius: 8px; overflow: hidden; }
+th { background: var(--bleu-profond); color: var(--blanc); }
 </style>
 </head>
 <body>
-<h1>Simulateur de devis d'entretien</h1>
+<header>
+  <h1>Pyrénées Énergies Solutions</h1>
+  <p class="signature">L’énergie au cœur de votre maison.</p>
+</header>
+
+<h2>Simulateur de devis d'entretien</h2>
 <p id="mode-badge" class="mode-badge">Mode : non choisi</p>
 
 <fieldset>
@@ -86,14 +174,14 @@ function ajouterLigne() {
       <option value="auto">Autoconsommation</option>
       <option value="revente">Revente</option>
     </select></label>
-    <button onclick="document.getElementById('ligne-${id}').remove()">Supprimer</button>
+    <button class="danger" onclick="document.getElementById('ligne-${id}').remove()">Supprimer</button>
   `;
   document.getElementById('lignes').appendChild(div);
 }
 
 function calculer() {
   const lignes = document.querySelectorAll('.ligne');
-  let html = '<table border="1" cellpadding="6" style="border-collapse:collapse;width:100%">';
+  let html = '<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;border-color:#d0d7de">';
   html += '<tr><th>Appareil</th><th>Qté</th><th>Prix unitaire</th><th>Total HT</th><th>TVA</th><th>TTC</th></tr>';
   let totalHT = 0, totalTVA = 0, totalTTC = 0;
   lignes.forEach(div => {
@@ -132,7 +220,6 @@ function envoyer() {
       modeSolaire: document.getElementById('mode-solaire-' + id).value
     });
   });
-  // Envoi via webhook ou affichage
   alert('Devis prêt à envoyer. En mode production, il part automatiquement à contact@pyrenees-energie-solution.fr.');
   console.log(JSON.stringify(devis, null, 2));
 }
