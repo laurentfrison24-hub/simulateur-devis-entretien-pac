@@ -218,43 +218,55 @@ function calculerAlerte(id) {
   const annee = parseInt(document.getElementById('annee-' + id).value);
   const type = document.getElementById('type-' + id).value;
   const puissance = parseFloat(document.getElementById('puissance-' + id)?.value) || 0;
+  const dernierEntretien = document.getElementById('dernier-entretien-' + id)?.value;
 
-  if (!annee || annee < 2000) return { text: 'Année non renseignée', level: 'warning', nextYear: null };
+  if (!annee || annee < 2000) return { text: 'Année non renseignée', level: 'warning', nextYear: null, lastDate: '' };
 
   const currentYear = new Date().getFullYear();
-  const age = currentYear - annee;
+  const today = new Date();
   const isClimPac = type.startsWith('clim') || type.startsWith('pac');
   const legalObligation = isClimPac && puissance >= 4;
+  const intervalYears = legalObligation ? 2 : 1;
 
   let text = '';
   let level = 'ok';
-  let nextYear = annee + 1;
+  let nextDate = null;
+  let lastDateStr = '';
 
-  if (legalObligation) {
-    // Décret 2020-912 : minimum tous les 2 ans
-    const cycles = Math.floor(age / 2);
-    nextYear = annee + (cycles + 1) * 2;
-    if (age < 2) {
-      text = `Installé en ${annee} (≥ 4 kW). Obligation légale tous les 2 ans (décret 2020-912). Prochaine échéance légale : ${nextYear}. Conseil commercial : entretien annuel.`;
-      level = 'legal';
+  if (dernierEntretien) {
+    const lastDate = new Date(dernierEntretien);
+    lastDateStr = dernierEntretien;
+    nextDate = new Date(lastDate);
+    nextDate.setFullYear(nextDate.getFullYear() + intervalYears);
+
+    const monthsUntil = (nextDate - today) / (1000 * 60 * 60 * 24 * 30);
+    if (monthsUntil > 1) {
+      text = `Dernier entretien le ${lastDate.toLocaleDateString('fr-FR')}. Prochain : ${nextDate.toLocaleDateString('fr-FR')} (${legalObligation ? 'obligation légale 2 ans' : 'conseil annuel'}).`;
+      level = 'ok';
+    } else if (monthsUntil > 0) {
+      text = `Dernier entretien le ${lastDate.toLocaleDateString('fr-FR')}. Prochain dans moins d'1 mois (${nextDate.toLocaleDateString('fr-FR')}).`;
+      level = 'warning';
     } else {
-      const enRetardLegal = (currentYear - annee) >= 2;
-      text = `Installé en ${annee} (${age} ans, ≥ 4 kW). Obligation légale tous les 2 ans. Prochaine échéance légale : ${nextYear}. Entretien annuel recommandé.`;
-      level = enRetardLegal ? 'overdue' : 'warning';
+      text = `Dernier entretien le ${lastDate.toLocaleDateString('fr-FR')}. Échéance dépassée (prochain était le ${nextDate.toLocaleDateString('fr-FR')}).`;
+      level = 'overdue';
     }
   } else {
-    // Conseil annuel pour tout le reste (ou < 4 kW)
-    nextYear = annee + age + 1;
-    if (age <= 0) {
-      text = `Équipement récent (${annee}). Entretien annuel conseillé dès ${nextYear}.`;
-      level = 'ok';
+    // Pas de date de dernier entretien → échelle basée sur l'année d'installation
+    const age = currentYear - annee;
+    if (legalObligation) {
+      const cycles = Math.floor(age / 2);
+      const nextYear = annee + (cycles + 1) * 2;
+      const enRetard = age >= 2;
+      text = `Aucun entretien saisi. Installé en ${annee} (≥ 4 kW). Obligation légale tous les 2 ans. Prochaine échéance estimée : ${nextYear}.`;
+      level = enRetard ? 'overdue' : 'legal';
     } else {
-      text = `Installé en ${annee} (${age} ans). Entretien annuel recommandé (conseil commercial). Prochaine échéance : ${nextYear}.`;
+      const nextYear = annee + age + 1;
+      text = `Aucun entretien saisi. Installé en ${annee} (${age} ans). Entretien annuel recommandé. Prochaine échéance estimée : ${nextYear}.`;
       level = age >= 1 ? 'warning' : 'ok';
     }
   }
 
-  return { text, level, nextYear, age, legal: legalObligation };
+  return { text, level, nextDate: nextDate ? nextDate.toISOString().slice(0,10) : null, lastDate: lastDateStr, legal: legalObligation };
 }
 
 function updateAlerte(id) {
@@ -263,9 +275,10 @@ function updateAlerte(id) {
   const info = calculerAlerte(id);
   alerteDiv.className = 'alerte ' + info.level;
   alerteDiv.textContent = '⚠️ ' + info.text;
-  alerteDiv.dataset.nextYear = info.nextYear || '';
   alerteDiv.dataset.level = info.level;
   alerteDiv.dataset.legal = info.legal ? 'oui' : 'non';
+  alerteDiv.dataset.lastDate = info.lastDate || '';
+  alerteDiv.dataset.nextDate = info.nextDate || '';
 }
 
 function ajouterLigne() {
@@ -283,6 +296,7 @@ function ajouterLigne() {
       <option value="ballon">Ballon eau chaude</option>
     </select></label>
     <label>Année d'installation <input id="annee-${id}" type="number" min="2000" max="2030" value="2020" oninput="updateAlerte(${id})"></label>
+    <label>Date du dernier entretien <input id="dernier-entretien-${id}" type="date" oninput="updateAlerte(${id})"></label>
     <div id="alerte-${id}" class="alerte"></div>
     <label>Installé par moi <input id="parmoi-${id}" type="checkbox"></label>
 
@@ -387,6 +401,7 @@ function envoyer() {
     devis.lignes.push({
       type,
       annee: document.getElementById('annee-' + id).value,
+      dernierEntretien: document.getElementById('dernier-entretien-' + id)?.value || '',
       parMoi: document.getElementById('parmoi-' + id).checked,
       puissance: document.getElementById('puissance-' + id)?.value || '',
       panneaux: document.getElementById('panneaux-' + id)?.value || '',
@@ -396,7 +411,8 @@ function envoyer() {
       alerte: {
         text: alerteEl ? alerteEl.textContent : '',
         level: alerteEl ? alerteEl.dataset.level : '',
-        nextYear: alerteEl ? alerteEl.dataset.nextYear : '',
+        lastDate: alerteEl ? alerteEl.dataset.lastDate : '',
+        nextDate: alerteEl ? alerteEl.dataset.nextDate : '',
         legal: alerteEl ? alerteEl.dataset.legal : ''
       },
       photos: {
@@ -406,7 +422,7 @@ function envoyer() {
       }
     });
   });
-  alert('Devis prêt à envoyer. L\'alerte (incluant l\'obligation légale) est conservée pour le compte rendu.');
+  alert('Devis prêt à envoyer. La date du dernier entretien et l\'alerte sont conservées pour le compte rendu.');
   console.log(JSON.stringify(devis, null, 2));
 }
 
