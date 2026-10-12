@@ -31,8 +31,12 @@ header {
   margin-bottom: 1.5rem;
   text-align: center;
 }
+header .logo {
+  max-height: 70px;
+  margin-bottom: 0.5rem;
+}
 header h1 {
-  margin: 0 0 0.3rem;
+  margin: 0.3rem 0 0.2rem;
   font-size: 1.6rem;
   font-weight: 700;
 }
@@ -96,10 +100,13 @@ button.danger { background: #c0392b; }
 h2 { color: var(--bleu-profond); margin-top: 1.8rem; }
 table { background: var(--blanc); border-radius: 8px; overflow: hidden; }
 th { background: var(--bleu-profond); color: var(--blanc); }
+.field-hidden { display: none; }
 </style>
 </head>
 <body>
 <header>
+  <!-- Logo : remplacer src par le fichier officiel dès qu'il est disponible -->
+  <img class="logo" src="" alt="Logo Pyrénées Énergies Solutions" style="display:none">
   <h1>Pyrénées Énergies Solutions</h1>
   <p class="signature">L’énergie au cœur de votre maison.</p>
 </header>
@@ -151,13 +158,23 @@ document.querySelectorAll('input[name="mode"]').forEach(r => {
   });
 });
 
+function toggleFields(id) {
+  const type = document.getElementById('type-' + id).value;
+  const isClimPac = type.startsWith('clim') || type.startsWith('pac');
+  const isBallon = type === 'ballon';
+  const isSolaire = type === 'solaire';
+  document.getElementById('puissance-wrap-' + id).classList.toggle('field-hidden', !isClimPac);
+  document.getElementById('ballon-wrap-' + id).classList.toggle('field-hidden', !isBallon);
+  document.getElementById('solaire-wrap-' + id).classList.toggle('field-hidden', !isSolaire);
+}
+
 function ajouterLigne() {
   const id = ++ligneId;
   const div = document.createElement('div');
   div.className = 'ligne';
   div.id = 'ligne-' + id;
   div.innerHTML = `
-    <label>Type <select id="type-${id}">
+    <label>Type <select id="type-${id}" onchange="toggleFields(${id})">
       <option value="clim-mono">Clim monosplit</option>
       <option value="clim-multi">Clim multisplit</option>
       <option value="pac-air-air">PAC air-air</option>
@@ -167,16 +184,36 @@ function ajouterLigne() {
     </select></label>
     <label>Année d'installation <input id="annee-${id}" type="number" min="2000" max="2030" value="2020"></label>
     <label>Installé par moi <input id="parmoi-${id}" type="checkbox"></label>
-    <label>Puissance (kW) <input id="puissance-${id}" type="number" step="0.1" min="0"></label>
-    <label>Nombre de panneaux <input id="panneaux-${id}" type="number" min="0"></label>
-    <label>Autoconsommation / Revente <select id="mode-solaire-${id}">
-      <option value="">—</option>
-      <option value="auto">Autoconsommation</option>
-      <option value="revente">Revente</option>
-    </select></label>
+
+    <div id="puissance-wrap-${id}">
+      <label>Puissance (kW) <input id="puissance-${id}" type="number" step="0.1" min="0" placeholder="ex: 3.5"></label>
+    </div>
+
+    <div id="ballon-wrap-${id}" class="field-hidden">
+      <label>Type de ballon
+        <select id="type-ballon-${id}">
+          <option value="thermodynamique">Thermodynamique</option>
+          <option value="electrique">Électrique</option>
+          <option value="solaire">Solaire</option>
+          <option value="autre">Autre</option>
+        </select>
+      </label>
+      <label>Litrage (L) <input id="litrage-${id}" type="number" min="50" max="500" placeholder="ex: 200"></label>
+    </div>
+
+    <div id="solaire-wrap-${id}" class="field-hidden">
+      <label>Nombre de panneaux <input id="panneaux-${id}" type="number" min="0"></label>
+      <label>Autoconsommation / Revente <select id="mode-solaire-${id}">
+        <option value="">—</option>
+        <option value="auto">Autoconsommation</option>
+        <option value="revente">Revente</option>
+      </select></label>
+    </div>
+
     <button class="danger" onclick="document.getElementById('ligne-${id}').remove()">Supprimer</button>
   `;
   document.getElementById('lignes').appendChild(div);
+  toggleFields(id);
 }
 
 function calculer() {
@@ -188,12 +225,25 @@ function calculer() {
     const id = div.id.split('-')[1];
     const type = document.getElementById('type-' + id).value;
     const t = TARIFS[type];
+    let desc = t.lib;
     const qte = type === 'solaire' ? (parseInt(document.getElementById('panneaux-' + id).value) || 0) : 1;
+
+    if (type.startsWith('clim') || type.startsWith('pac')) {
+      const kw = document.getElementById('puissance-' + id).value;
+      if (kw) desc += ` (${kw} kW)`;
+    }
+    if (type === 'ballon') {
+      const typeB = document.getElementById('type-ballon-' + id).value;
+      const lit = document.getElementById('litrage-' + id).value;
+      desc += ` — ${typeB}`;
+      if (lit) desc += ` ${lit} L`;
+    }
+
     const ht = t.prix * qte;
     const tva = ht * t.tva;
     const ttc = ht + tva;
     totalHT += ht; totalTVA += tva; totalTTC += ttc;
-    html += `<tr><td>${t.lib}</td><td>${qte}</td><td>${t.prix.toFixed(2)} €</td><td>${ht.toFixed(2)} €</td><td>${tva.toFixed(2)} €</td><td>${ttc.toFixed(2)} €</td></tr>`;
+    html += `<tr><td>${desc}</td><td>${qte}</td><td>${t.prix.toFixed(2)} €</td><td>${ht.toFixed(2)} €</td><td>${tva.toFixed(2)} €</td><td>${ttc.toFixed(2)} €</td></tr>`;
   });
   html += `<tr class="total"><td colspan="3">Total</td><td>${totalHT.toFixed(2)} €</td><td>${totalTVA.toFixed(2)} €</td><td>${totalTTC.toFixed(2)} €</td></tr></table>`;
   document.getElementById('resultat').innerHTML = html;
@@ -211,13 +261,16 @@ function envoyer() {
   const devis = { mode, client, lignes: [], date: new Date().toISOString() };
   document.querySelectorAll('.ligne').forEach(div => {
     const id = div.id.split('-')[1];
+    const type = document.getElementById('type-' + id).value;
     devis.lignes.push({
-      type: document.getElementById('type-' + id).value,
+      type,
       annee: document.getElementById('annee-' + id).value,
       parMoi: document.getElementById('parmoi-' + id).checked,
-      puissance: document.getElementById('puissance-' + id).value,
-      panneaux: document.getElementById('panneaux-' + id).value,
-      modeSolaire: document.getElementById('mode-solaire-' + id).value
+      puissance: document.getElementById('puissance-' + id)?.value || '',
+      panneaux: document.getElementById('panneaux-' + id)?.value || '',
+      modeSolaire: document.getElementById('mode-solaire-' + id)?.value || '',
+      typeBallon: document.getElementById('type-ballon-' + id)?.value || '',
+      litrage: document.getElementById('litrage-' + id)?.value || ''
     });
   });
   alert('Devis prêt à envoyer. En mode production, il part automatiquement à contact@pyrenees-energie-solution.fr.');
