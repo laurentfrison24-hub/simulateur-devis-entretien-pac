@@ -149,7 +149,7 @@ const TARIFS = {
   "pac-air-air": { lib: "PAC air-air", prix: 175, tva: 0.20 },
   "pac-air-eau": { lib: "PAC air-eau", prix: 225, tva: 0.20 },
   "solaire": { lib: "Panneaux solaires", prix: 15, tva: 0.055, unitaire: true },
-  "ballon": { lib: "Ballon thermodynamique", prix: 175, tva: 0.20 }
+  "ballon": { lib: "Ballon eau chaude", prix: 175, tva: 0.20 }
 };
 
 let ligneId = 0;
@@ -199,7 +199,7 @@ function ajouterLigne() {
       <option value="pac-air-air">PAC air-air</option>
       <option value="pac-air-eau">PAC air-eau</option>
       <option value="solaire">Panneaux solaires</option>
-      <option value="ballon">Ballon thermodynamique</option>
+      <option value="ballon">Ballon eau chaude</option>
     </select></label>
     <label>Année d'installation <input id="annee-${id}" type="number" min="2000" max="2030" value="2020"></label>
     <label>Installé par moi <input id="parmoi-${id}" type="checkbox"></label>
